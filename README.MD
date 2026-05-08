@@ -14,7 +14,9 @@ A reproduction and extension of:
 
 ## Why This Project Is Different
 
-- Replaces legacy Kaldi stack with Hugging Face Wav2Vec2 (CTC)
+- Replaces legacy Kaldi stack with Hugging Face Wav2Vec2 (CTC) (using `wav2vec2-large-960h-lv60-self` for extended datasets)
+- Expands evaluation beyond TIMIT to include **Mozilla Common Voice** and **LibriSpeech (dev-clean)**
+- Implements robust forced alignment using `torchaudio.pipelines.MMS_FA`
 - Tuned for modern hardware via ONNX Runtime workflow
 - Adds new method: `LIME-TS-Overlap` (50% overlap)
 - Adds SHAP comparison against LIME variants
@@ -58,30 +60,35 @@ pip install transformers torchaudio scikit-learn scipy matplotlib seaborn pandas
 
 ### 2) Prepare Dataset
 
-- Download TIMIT
-- Set dataset root in notebook config
-- Ensure audio is available for 16 kHz processing pipeline
+- Download datasets: TIMIT, Mozilla Common Voice, and/or LibriSpeech
+- Set dataset root paths in the respective notebook configuration sections
+- Ensure audio is available and correctly formatted (e.g., `.wav`, `.mp3`, or `.flac` for 16 kHz processing pipeline)
 
 ### 3) Run Notebook
 
-Open and run:
-- `XAI_ASR_Phoneme_Recognition.ipynb`
+Open and run the notebook for your target dataset:
+- `XAI_ASR_Phoneme_Recognition.ipynb` (TIMIT Baseline)
+- `XAI_ASR_Phoneme_Recognition_Updated.ipynb` (TIMIT with SHAP & Overlap)
+- `xai_asr_evaluation_for_CommonVoice.ipynb` (Common Voice Evaluation)
+- `xai_asr_evaluation_for_librispeech.ipynb` (LibriSpeech Evaluation)
 
 ## Method Overview
 
-1. Preprocess TIMIT audio to 16 kHz and apply Lee and Hon `61 -> 39` mapping
-2. Run Wav2Vec2 inference through ONNX Runtime backend
-3. Generate perturbations using segment masking
+1. Preprocess audio and apply forced alignment (using Lee & Hon `61 -> 39` mapping for TIMIT, or `torchaudio` MMS Forced Aligner for other datasets)
+2. Run Wav2Vec2 inference (via ONNX Runtime backend or PyTorch)
+3. Generate perturbations using segment masking (Base LIME, LIME-WS, LIME-TS)
 4. Compute validity metrics (`V@1`, `V@3`, `V@5`)
-5. Perform statistical tests (ANOVA, Tukey HSD, Wilcoxon)
+5. Perform statistical tests (ANOVA, Tukey HSD, Wilcoxon) and generate qualitative heatmaps
 
 ## Repository Map
 
 ```text
-assets/                                 # Visual assets
-Paper/                                  # Reference paper(s)
-XAI_ASR_Phoneme_Recognition.ipynb       # Main research notebook
-XAI_ASR_Phoneme_Recognition_Updated.ipynb
+assets/                                      # Visual assets
+Paper/                                       # Reference paper(s)
+XAI_ASR_Phoneme_Recognition.ipynb            # Original TIMIT research notebook
+XAI_ASR_Phoneme_Recognition_Updated.ipynb    # Updated TIMIT notebook (SHAP, Overlap)
+xai_asr_evaluation_for_CommonVoice.ipynb     # Common Voice evaluation notebook
+xai_asr_evaluation_for_librispeech.ipynb     # LibriSpeech evaluation notebook
 README.MD
 LICENSE
 ```
