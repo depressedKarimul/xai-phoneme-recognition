@@ -7,78 +7,112 @@
 [![Model](https://img.shields.io/badge/Model-Wav2Vec2--Base-green.svg)](https://huggingface.co/patrickvonplaten/wav2vec2-base-timit-fine-tuned)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-This repository reproduces and extends the analysis from:
-**"Can We Trust Explainable AI Methods on ASR? An Evaluation on Phoneme Recognition"** (Wu et al., Interspeech 2023).
+A reproduction and extension of:
+**"Can We Trust Explainable AI Methods on ASR? An Evaluation on Phoneme Recognition"** (Wu et al., Interspeech 2023)
 
-## Overview
+> Goal: stress-test LIME-style explanations for phoneme-level ASR and push beyond the original setup with stronger baselines, new variants, and deeper analysis.
 
-The project evaluates Local Interpretable Model-agnostic Explanations (LIME) for Automatic Speech Recognition (ASR) phoneme recognition on the TIMIT dataset. Three LIME variants are analyzed:
+## Why This Project Is Different
 
-- Base LIME
-- LIME-WS (Window-Segment)
-- LIME-TS (Time-Segment)
+- Replaces legacy Kaldi stack with Hugging Face Wav2Vec2 (CTC)
+- Tuned for modern hardware via ONNX Runtime workflow
+- Adds new method: `LIME-TS-Overlap` (50% overlap)
+- Adds SHAP comparison against LIME variants
+- Adds gender and phoneme-category (vowel vs consonant) analysis
+- Reports duration sensitivity (50/70/90 ms)
 
-## Key Contributions
+## Results At A Glance
 
-- Replaces a legacy Kaldi-based backend with Hugging Face Wav2Vec2 for CTC phoneme recognition.
-- Uses ONNX Runtime GPU (`CUDAExecutionProvider`) for modern NVIDIA hardware compatibility.
-- Reports substantial improvement over the reference paper for Base LIME and LIME-WS at `Validity@3`.
-- Identifies `90 ms` segment duration as a strong setting under this experimental setup.
+Evaluation setting: `n_samples=500`, `dur_ms=90`, `TIMIT speakers=630`
 
-## Evaluation Results
+| Method | Paper V@1 | Ours V@1 | Paper V@3 | Ours V@3 | Paper V@5 | Ours V@5 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| Base LIME | 0.40 | 0.50 | 0.62 | 0.91 | 0.67 | 0.95 |
+| LIME-WS | 0.49 | 0.48 | 0.76 | 0.92 | 0.83 | 0.96 |
+| LIME-TS | 0.86 | 0.59 | 0.96 | 0.92 | 0.97 | 0.97 |
+| Random | 0.03 | 0.02 | 0.09 | 0.07 | 0.15 | 0.12 |
 
-Evaluated with `500` samples, `90 ms` segment duration, and `300 ms` window size.
+### Additional Contributions
 
-| Methodology | V@1 | V@3 | V@5 | vs. Paper (V@3) |
-| :--- | :---: | :---: | :---: | :---: |
-| Base LIME | 0.50 | 0.91 | 0.95 | +47% |
-| LIME-WS | 0.48 | 0.92 | 0.96 | +21% |
-| LIME-TS | 0.59 | 0.92 | 0.97 | Comparable |
-| Random Baseline | 0.02 | 0.07 | 0.12 | - |
+| Method | V@1 | V@3 | V@5 | Notes |
+| :--- | :---: | :---: | :---: | :--- |
+| LIME-TS-Overlap | 0.74 | 0.98 | 1.00 | 50% segment overlap |
+| SHAP | - | 10.0% | - | Baseline comparison |
+| LIME-TS (90 ms) | - | 92.5% | - | Strongest non-overlap setting |
 
-### Gender-Based Validity Analysis
+### Duration Sensitivity
 
-| Gender | Method | V@1 | V@3 | V@5 |
-| :--- | :--- | :---: | :---: | :---: |
-| Female | LIME-TS | 0.584 | 0.922 | 0.964 |
-| Male | LIME-TS | 0.592 | 0.926 | 0.971 |
+| Segment Duration | LIME-TS Validity@3 |
+| :--- | :---: |
+| 50 ms | 0.76 |
+| 70 ms (paper setting) | 0.85 |
+| 90 ms (this work) | 0.91 |
 
-## Requirements
+## Quickstart
 
-- OS: Windows 11
-- GPU: NVIDIA RTX 5000 series (Blackwell architecture)
-- Python: 3.10.x
-- Inference stack: ONNX Runtime GPU + Optimum
-
-## Installation
+### 1) Install Dependencies
 
 ```bash
-pip install transformers torchaudio scikit-learn scipy matplotlib seaborn pandas numpy tqdm statsmodels optimum onnxruntime-gpu
+pip install transformers torchaudio scikit-learn scipy matplotlib seaborn pandas numpy tqdm statsmodels optimum onnxruntime-gpu shap
 ```
 
-## Repository Structure
+### 2) Prepare Dataset
+
+- Download TIMIT
+- Set dataset root in notebook config
+- Ensure audio is available for 16 kHz processing pipeline
+
+### 3) Run Notebook
+
+Open and run:
+- `XAI_ASR_Phoneme_Recognition.ipynb`
+
+## Method Overview
+
+1. Preprocess TIMIT audio to 16 kHz and apply Lee and Hon `61 -> 39` mapping
+2. Run Wav2Vec2 inference through ONNX Runtime backend
+3. Generate perturbations using segment masking
+4. Compute validity metrics (`V@1`, `V@3`, `V@5`)
+5. Perform statistical tests (ANOVA, Tukey HSD, Wilcoxon)
+
+## Repository Map
 
 ```text
-assets/                                 # Project media
+assets/                                 # Visual assets
 Paper/                                  # Reference paper(s)
-XAI_ASR_Phoneme_Recognition.ipynb       # Primary notebook
+XAI_ASR_Phoneme_Recognition.ipynb       # Main research notebook
 XAI_ASR_Phoneme_Recognition_Updated.ipynb
-README.MD                               # Documentation
+README.MD
+LICENSE
 ```
 
-## Methodology
+## Notebook Map
 
-The evaluation pipeline follows a black-box approach:
-
-1. Preprocess TIMIT audio to `16 kHz` and apply Lee & Hon `61 -> 39` phoneme mapping.
-2. Apply segment-based perturbations to generate local surrogate samples.
-3. Compute validity metrics from phoneme probability shifts.
-4. Run statistical significance testing (including Tukey HSD) to compare methods.
+| Cell | Focus |
+| :--- | :--- |
+| 1 | Package installation |
+| 2 | Imports and config |
+| 3 | TIMIT loading and phoneme mapping |
+| 4 | Wav2Vec2 ASR inference |
+| 5 | Base LIME |
+| 6 | LIME-WS |
+| 7 | LIME-TS |
+| 8 | Validity evaluation |
+| 9 | Paper-style results table |
+| 10 | Gender analysis |
+| 11 | Duration sensitivity |
+| 12 | Waveform heatmap |
+| 13 | Model saving |
+| 14 | SHAP vs LIME |
+| 15 | LIME-TS-Overlap |
+| 16 | Vowel vs consonant analysis |
+| 17 | Attention visualization |
+| 18 | Combined summary table |
 
 ## Reference
 
-Wu, J., et al. *Can We Trust Explainable AI Methods on ASR? An Evaluation on Phoneme Recognition.* Interspeech, 2023.
+Wu, X., Bell, P., and Rajan, A. "Can We Trust Explainable AI Methods on ASR? An Evaluation on Phoneme Recognition." Interspeech, 2023.
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE).
+MIT License. See [LICENSE](LICENSE).
